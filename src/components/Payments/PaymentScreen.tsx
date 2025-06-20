@@ -8,26 +8,11 @@ export const PaymentScreen = () => {
   const [selectedLabour, setSelectedLabour] = useState<string>('');
   const [form, setForm] = useState({ date: '', amount: '', mode: '', narration: '' });
   const [loading, setLoading] = useState(false);
-  const [pendingAmount, setPendingAmount] = useState<number>(0);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
 
   useEffect(() => {
     fetchAll();
   }, []);
-
-  useEffect(() => {
-    const fetchBalance = async () => {
-      if (selectedLabour) {
-        const { data: labour } = await supabase
-          .from('labour_master')
-          .select('balance')
-          .eq('id', selectedLabour)
-          .maybeSingle();
-        setPendingAmount(Number(labour?.balance) || 0);
-      }
-    };
-    fetchBalance();
-  }, [selectedLabour, payments]);
 
   const fetchAll = async () => {
     await Promise.all([fetchLabours(), fetchPayments()]);
@@ -51,27 +36,10 @@ export const PaymentScreen = () => {
     }
     setLoading(true);
     try {
-      // 1. Get current balance
-      const { data: labour, error: labourError } = await supabase
-        .from('labour_master')
-        .select('balance')
-        .eq('id', selectedLabour)
-        .maybeSingle();
-      if (labourError || !labour) {
-        toast.error('Could not fetch current balance.');
-        setLoading(false);
-        return;
-      }
-      const prevBalance = Number(labour.balance) || 0;
       const paymentAmount = Number(form.amount);
 
       if (editingPayment) {
         // EDIT MODE
-        const oldAmount = Number(editingPayment.amount);
-        const diff = paymentAmount - oldAmount;
-        const newBalance = prevBalance - diff;
-
-        // 1. Update payment
         await supabase.from('payments').update({
           date: form.date,
           amount: paymentAmount,
@@ -79,18 +47,10 @@ export const PaymentScreen = () => {
           narration: form.narration,
         }).eq('id', editingPayment.id);
 
-        // 2. Update master balance
-        await supabase.from('labour_master')
-          .update({ balance: newBalance })
-          .eq('id', selectedLabour);
-
         toast.success('Payment updated!');
         setEditingPayment(null);
       } else {
         // ADD MODE
-        const newBalance = prevBalance - paymentAmount;
-
-        // 1. Insert payment
         const { error: paymentError } = await supabase.from('payments').insert([{
           labour_id: selectedLabour,
           date: form.date,
@@ -103,11 +63,6 @@ export const PaymentScreen = () => {
           setLoading(false);
           return;
         }
-
-        // 2. Update master balance
-        await supabase.from('labour_master')
-          .update({ balance: newBalance })
-          .eq('id', selectedLabour);
 
         toast.success('Payment added!');
       }
@@ -136,21 +91,7 @@ export const PaymentScreen = () => {
     if (!window.confirm('Are you sure you want to delete this payment?')) return;
     setLoading(true);
     try {
-      // 1. Delete payment
       await supabase.from('payments').delete().eq('id', payment.id);
-
-      // 2. Update master balance (add back the deleted payment amount)
-      const { data: labour } = await supabase
-        .from('labour_master')
-        .select('balance')
-        .eq('id', payment.labour_id)
-        .maybeSingle();
-      const prevBalance = Number(labour?.balance) || 0;
-      const newBalance = prevBalance + Number(payment.amount);
-
-      await supabase.from('labour_master')
-        .update({ balance: newBalance })
-        .eq('id', payment.labour_id);
 
       toast.success('Payment deleted!');
       setForm({ date: '', amount: '', mode: '', narration: '' });
@@ -166,11 +107,6 @@ export const PaymentScreen = () => {
   return (
     <div className="max-w-2xl mx-auto p-4 sm:p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg mt-8">
       <h1 className="text-2xl font-bold mb-6 text-blue-900 dark:text-blue-100 text-center">Payments</h1>
-      {selectedLabour && (
-        <div className="mb-4 p-4 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-900 dark:text-yellow-100 font-semibold text-center">
-          Pending Amount: ₹{pendingAmount}
-        </div>
-      )}
       <div className="mb-6">
         <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Select Labour</label>
         <select

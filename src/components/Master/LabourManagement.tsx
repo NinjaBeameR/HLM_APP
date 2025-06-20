@@ -79,11 +79,12 @@ export const LabourManagement = () => {
     const { data: existing } = await supabase
       .from('labour_master')
       .select('id')
-      .or(`full_name.eq.${formData.full_name},phone.eq.${formData.phone}`)
+      .eq('full_name', formData.full_name)
+      .eq('phone', formData.phone)
       .neq('id', editingLabour?.id || ''); // exclude self when editing
 
     if (existing && existing.length > 0) {
-      toast.error('Labour with this name or phone already exists!');
+      toast.error('Labour with this name and phone already exists!');
       setLoading(false);
       return;
     }
