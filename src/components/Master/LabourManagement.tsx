@@ -95,7 +95,9 @@ export const LabourManagement = () => {
         address: formData.address,
         phone: formData.phone,
         is_active: true,
-        balance: formData.balance ? Number(formData.balance) : 0,
+        balance: formData.balance !== '' && formData.balance !== null && formData.balance !== undefined
+  ? Number(formData.balance)
+  : 0,
       }).eq('id', editingLabour.id);
       setLoading(false);
       if (error) {
@@ -105,6 +107,23 @@ export const LabourManagement = () => {
         toast.success('Labour updated!');
         resetForm();
         fetchLabours(); // Refresh list
+
+        // Recalculate all daily entries for this labour
+        const { data: entries } = await supabase
+      .from('daily_entries')
+      .select('*')
+      .eq('labour_id', editingLabour.id)
+      .order('entry_date', { ascending: true });
+
+        let runningBalance = Number(formData.balance) || 0;
+        for (const entry of entries || []) {
+          const prevBalance = runningBalance;
+          runningBalance += Number(entry.amount_paid) || 0;
+          await supabase.from('daily_entries').update({
+            previous_balance: prevBalance,
+            new_balance: runningBalance,
+          }).eq('id', entry.id);
+        }
       }
     } else {
       // Insert
@@ -114,7 +133,9 @@ export const LabourManagement = () => {
           address: formData.address,
           phone: formData.phone,
           is_active: true,
-          balance: formData.balance ? Number(formData.balance) : 0,
+          balance: formData.balance !== '' && formData.balance !== null && formData.balance !== undefined
+  ? Number(formData.balance)
+  : 0,
         },
       ]);
       setLoading(false);
