@@ -121,7 +121,7 @@ export const SummaryDashboard: React.FC = () => {
       ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
       // Start with opening balance
-      let runningBalance = 0; // or use opening balance if you have one
+      let runningBalance = Number(labour.balance) || 0;
 
       combined.forEach(row => {
         if (row.type === 'Work') {
