@@ -273,7 +273,8 @@ export const SummaryDashboard: React.FC = () => {
           )}
           {filteredLabours.map(labour => {
             const summary = getLabourSummary(labour.id);
-            const computedBalance = summary.totalWork - summary.totalPaid;
+            const openingBalance = Number(labour.balance) || 0;
+            const computedBalance = openingBalance + summary.totalWork - summary.totalPaid;
             return (
               <div key={labour.id} className="p-4 flex justify-between items-center">
                 <div>

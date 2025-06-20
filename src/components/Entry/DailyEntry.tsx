@@ -26,7 +26,6 @@ export const DailyEntry: React.FC = () => {
     new_balance: 0,
   });
 
-  // New state for editing
   const [editingEntry, setEditingEntry] = useState<any | null>(null);
   const [entries, setEntries] = useState<any[]>([]);
 
@@ -67,8 +66,13 @@ export const DailyEntry: React.FC = () => {
     if (prevEntries && prevEntries.length > 0) {
       return Number(prevEntries[0].new_balance) || 0;
     }
-    // If no previous entry, use 0 or opening balance
-    return 0;
+    // If no previous entry, use opening balance from master
+    const { data: labour } = await supabase
+      .from('labour_master')
+      .select('balance')
+      .eq('id', labour_id)
+      .maybeSingle();
+    return Number(labour?.balance) || 0;
   };
 
   // In your useEffect, update calculations when labour or date changes:
@@ -156,11 +160,6 @@ export const DailyEntry: React.FC = () => {
         }).eq('id', subEntry.id);
       }
 
-      // 3. Update master balance
-      await supabase.from('labour_master')
-        .update({ balance })
-        .eq('id', entry.labour_id);
-
       toast.success('Entry deleted!');
       setSaving(false);
       setEditingEntry(null);
@@ -210,9 +209,6 @@ export const DailyEntry: React.FC = () => {
 
       if (editingEntry) {
         // EDIT MODE
-       // const wageDiff = wageAmount - Number(editingEntry.amount_paid);
-
-        // 1. Update the entry
         await supabase.from('daily_entries').update({
           ...editingEntry,
           entry_date: formData.entry_date,
@@ -243,11 +239,6 @@ export const DailyEntry: React.FC = () => {
           }).eq('id', subEntry.id);
         }
 
-        // 3. Update master balance
-        await supabase.from('labour_master')
-          .update({ balance })
-          .eq('id', editingEntry.labour_id);
-
         toast.success('Entry updated!');
         setEditingEntry(null);
       } else {
@@ -265,26 +256,12 @@ export const DailyEntry: React.FC = () => {
           return;
         }
 
-        const { data: labour, error: labourError } = await supabase
-          .from('labour_master')
-          .select('balance')
-          .eq('id', formData.labour_id)
-          .maybeSingle();
-        if (labourError || !labour) {
-          toast.error('Could not fetch current balance.');
-          setSaving(false);
-          return;
-        }
-        const prevBalance = Number(labour.balance) || 0;
-        const wageAmount = Number(formData.wage);
-        const newBalance = prevBalance + wageAmount;
-
         const entry = {
           labour_id: formData.labour_id,
           entry_date: formData.entry_date,
-          amount_paid: Number(formData.wage),
-          previous_balance: Number(calculations.previous_balance),
-          new_balance: Number(calculations.new_balance),
+          amount_paid: wageAmount,
+          previous_balance: prevBalance,
+          new_balance: newBalance,
           notes: formData.notes,
           user_id: user.id,
           attendance_status: formData.attendance_status,
@@ -295,15 +272,6 @@ export const DailyEntry: React.FC = () => {
         const { error: entryError } = await supabase.from('daily_entries').insert([entry]);
         if (entryError) {
           toast.error('Failed to save entry: ' + entryError.message);
-          setSaving(false);
-          return;
-        }
-
-        const { error: masterError } = await supabase.from('labour_master')
-          .update({ balance: newBalance })
-          .eq('id', formData.labour_id);
-        if (masterError) {
-          toast.error('Failed to update master balance: ' + masterError.message);
           setSaving(false);
           return;
         }

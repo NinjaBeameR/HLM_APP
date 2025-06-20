@@ -74,23 +74,58 @@ export const LabourManagement = () => {
       return;
     }
     setLoading(true);
-    const { error } = await supabase.from('labour_master').insert([
-      {
+
+    // Check for duplicates
+    const { data: existing } = await supabase
+      .from('labour_master')
+      .select('id')
+      .or(`full_name.eq.${formData.full_name},phone.eq.${formData.phone}`)
+      .neq('id', editingLabour?.id || ''); // exclude self when editing
+
+    if (existing && existing.length > 0) {
+      toast.error('Labour with this name or phone already exists!');
+      setLoading(false);
+      return;
+    }
+
+    if (editingLabour) {
+      // Update
+      const { error } = await supabase.from('labour_master').update({
         full_name: formData.full_name,
         address: formData.address,
         phone: formData.phone,
         is_active: true,
         balance: formData.balance ? Number(formData.balance) : 0,
-      },
-    ]);
-    setLoading(false);
-    if (error) {
-      toast.error('Failed to add labour: ' + error.message);
-      console.error(error);
+      }).eq('id', editingLabour.id);
+      setLoading(false);
+      if (error) {
+        toast.error('Failed to update labour: ' + error.message);
+        console.error(error);
+      } else {
+        toast.success('Labour updated!');
+        resetForm();
+        fetchLabours(); // Refresh list
+      }
     } else {
-      toast.success('Labour added!');
-      resetForm();
-      fetchLabours(); // Refresh list
+      // Insert
+      const { error } = await supabase.from('labour_master').insert([
+        {
+          full_name: formData.full_name,
+          address: formData.address,
+          phone: formData.phone,
+          is_active: true,
+          balance: formData.balance ? Number(formData.balance) : 0,
+        },
+      ]);
+      setLoading(false);
+      if (error) {
+        toast.error('Failed to add labour: ' + error.message);
+        console.error(error);
+      } else {
+        toast.success('Labour added!');
+        resetForm();
+        fetchLabours(); // Refresh list
+      }
     }
   };
 
