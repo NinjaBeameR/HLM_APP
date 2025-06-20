@@ -148,7 +148,16 @@ export const DailyEntry: React.FC = () => {
       toast.success('Entry deleted!');
       setSaving(false);
       setEditingEntry(null);
-      setFormData({ labour_id: '', entry_date: '', wage: '', notes: '', work_type: '', category: '', subcategory: '', attendance_status: 'present' });
+      setFormData({
+        labour_id: formData.labour_id, // keep current selection!
+        entry_date: '',
+        wage: '',
+        notes: '',
+        work_type: '',
+        category: '',
+        subcategory: '',
+        attendance_status: 'present'
+      });
       setCalculations({ previous_balance: 0, wage: 0, new_balance: 0 });
       fetchLabours();
     } catch (err: any) {
@@ -284,7 +293,16 @@ export const DailyEntry: React.FC = () => {
         }
 
         toast.success('Entry saved!');
-        setFormData({ labour_id: '', entry_date: '', wage: '', notes: '', work_type: '', category: '', subcategory: '', attendance_status: 'present' });
+        setFormData({
+          labour_id: formData.labour_id, // keep current selection!
+          entry_date: '',
+          wage: '',
+          notes: '',
+          work_type: '',
+          category: '',
+          subcategory: '',
+          attendance_status: 'present'
+        });
         setCalculations({ previous_balance: 0, wage: 0, new_balance: 0 });
         fetchLabours();
       }
