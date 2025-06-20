@@ -69,11 +69,14 @@ export const DailyEntry: React.FC = () => {
   }, [formData.labour_id]);
 
   useEffect(() => {
-    setCalculations(c => ({
-      ...c,
-      wage: Number(formData.wage || 0),
-      new_balance: c.previous_balance + Number(formData.wage || 0),
-    }));
+    setCalculations(c => {
+      const wageNum = Number(formData.wage);
+      return {
+        ...c,
+        wage: isNaN(wageNum) ? 0 : wageNum,
+        new_balance: c.previous_balance + (isNaN(wageNum) ? 0 : wageNum),
+      };
+    });
   }, [formData.wage]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -195,7 +198,7 @@ export const DailyEntry: React.FC = () => {
             <input
               type="number"
               value={formData.wage}
-              onChange={e => setFormData({ ...formData, wage: e.target.value })}
+              onChange={e => setFormData({ ...formData, wage: e.target.value.replace(/^0+/, '') })} // Remove leading zeros
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
               required
             />
