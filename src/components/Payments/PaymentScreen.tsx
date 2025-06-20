@@ -9,6 +9,7 @@ export const PaymentScreen = () => {
   const [form, setForm] = useState({ date: '', amount: '', mode: '', narration: '' });
   const [loading, setLoading] = useState(false);
   const [pendingAmount, setPendingAmount] = useState<number>(0);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
 
   useEffect(() => {
     fetchAll();
@@ -63,38 +64,101 @@ export const PaymentScreen = () => {
       }
       const prevBalance = Number(labour.balance) || 0;
       const paymentAmount = Number(form.amount);
-      const newBalance = prevBalance - paymentAmount;
 
-      // 2. Insert into payments
-      const { error: paymentError } = await supabase.from('payments').insert([{
-        labour_id: selectedLabour,
-        date: form.date,
-        amount: paymentAmount,
-        mode: form.mode,
-        narration: form.narration,
-      }]);
-      if (paymentError) {
-        toast.error('Failed to add payment: ' + paymentError.message);
-        setLoading(false);
-        return;
+      if (editingPayment) {
+        // EDIT MODE
+        const oldAmount = Number(editingPayment.amount);
+        const diff = paymentAmount - oldAmount;
+        const newBalance = prevBalance - diff;
+
+        // 1. Update payment
+        await supabase.from('payments').update({
+          date: form.date,
+          amount: paymentAmount,
+          mode: form.mode,
+          narration: form.narration,
+        }).eq('id', editingPayment.id);
+
+        // 2. Update master balance
+        await supabase.from('labour_master')
+          .update({ balance: newBalance })
+          .eq('id', selectedLabour);
+
+        toast.success('Payment updated!');
+        setEditingPayment(null);
+      } else {
+        // ADD MODE
+        const newBalance = prevBalance - paymentAmount;
+
+        // 1. Insert payment
+        const { error: paymentError } = await supabase.from('payments').insert([{
+          labour_id: selectedLabour,
+          date: form.date,
+          amount: paymentAmount,
+          mode: form.mode,
+          narration: form.narration,
+        }]);
+        if (paymentError) {
+          toast.error('Failed to add payment: ' + paymentError.message);
+          setLoading(false);
+          return;
+        }
+
+        // 2. Update master balance
+        await supabase.from('labour_master')
+          .update({ balance: newBalance })
+          .eq('id', selectedLabour);
+
+        toast.success('Payment added!');
       }
 
-      // 3. Update master balance
-      const { error: masterError } = await supabase.from('labour_master')
-        .update({ balance: newBalance })
-        .eq('id', selectedLabour);
-      if (masterError) {
-        toast.error('Failed to update master balance: ' + masterError.message);
-        setLoading(false);
-        return;
-      }
-
-      toast.success('Payment added!');
       setForm({ date: '', amount: '', mode: '', narration: '' });
       await fetchPayments();
       await fetchLabours();
     } catch (error: any) {
-      toast.error('Failed to add payment: ' + error.message);
+      toast.error('Failed to save payment: ' + error.message);
+    }
+    setLoading(false);
+  };
+
+  const handleEditPayment = (payment: any) => {
+    setEditingPayment(payment);
+    setSelectedLabour(payment.labour_id);
+    setForm({
+      date: payment.date,
+      amount: payment.amount.toString(),
+      mode: payment.mode || '',
+      narration: payment.narration || '',
+    });
+  };
+
+  const handleDeletePayment = async (payment: any) => {
+    if (!window.confirm('Are you sure you want to delete this payment?')) return;
+    setLoading(true);
+    try {
+      // 1. Delete payment
+      await supabase.from('payments').delete().eq('id', payment.id);
+
+      // 2. Update master balance (add back the deleted payment amount)
+      const { data: labour } = await supabase
+        .from('labour_master')
+        .select('balance')
+        .eq('id', payment.labour_id)
+        .maybeSingle();
+      const prevBalance = Number(labour?.balance) || 0;
+      const newBalance = prevBalance + Number(payment.amount);
+
+      await supabase.from('labour_master')
+        .update({ balance: newBalance })
+        .eq('id', payment.labour_id);
+
+      toast.success('Payment deleted!');
+      setForm({ date: '', amount: '', mode: '', narration: '' });
+      setEditingPayment(null);
+      await fetchPayments();
+      await fetchLabours();
+    } catch (error: any) {
+      toast.error('Failed to delete payment: ' + error.message);
     }
     setLoading(false);
   };
@@ -169,8 +233,21 @@ export const PaymentScreen = () => {
             className="w-full bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white font-semibold py-3 rounded-lg shadow transition-colors disabled:opacity-50 text-lg"
             disabled={loading}
           >
-            {loading ? 'Adding...' : 'Add Payment'}
+            {loading ? (editingPayment ? 'Updating...' : 'Adding...') : (editingPayment ? 'Update Payment' : 'Add Payment')}
           </button>
+          {editingPayment && (
+            <button
+              type="button"
+              className="w-full mt-2 bg-gray-400 hover:bg-gray-500 text-white font-semibold py-3 rounded-lg shadow transition-colors"
+              onClick={() => {
+                setEditingPayment(null);
+                setForm({ date: '', amount: '', mode: '', narration: '' });
+              }}
+              disabled={loading}
+            >
+              Cancel Edit
+            </button>
+          )}
         </div>
       </form>
       <h2 className="text-xl font-bold mb-4 text-blue-900 dark:text-blue-100 text-center">Payment History</h2>
@@ -184,6 +261,7 @@ export const PaymentScreen = () => {
               <th className="p-4 text-left">Amount</th>
               <th className="p-4 text-left">Mode</th>
               <th className="p-4 text-left">Narration</th>
+              <th className="p-4 text-left">Actions</th>
             </tr>
           </thead>
           <tbody className="text-gray-600 dark:text-gray-300 text-sm">
@@ -196,6 +274,22 @@ export const PaymentScreen = () => {
                 <td className="p-4 border-b border-gray-200 dark:border-gray-700">{payment.amount}</td>
                 <td className="p-4 border-b border-gray-200 dark:border-gray-700">{payment.mode}</td>
                 <td className="p-4 border-b border-gray-200 dark:border-gray-700">{payment.narration}</td>
+                <td className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <button
+                    className="px-2 py-1 bg-blue-500 text-white rounded mr-2"
+                    onClick={() => handleEditPayment(payment)}
+                    disabled={loading}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    className="px-2 py-1 bg-red-500 text-white rounded"
+                    onClick={() => handleDeletePayment(payment)}
+                    disabled={loading}
+                  >
+                    Delete
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -213,6 +307,22 @@ export const PaymentScreen = () => {
               <div><b>Labour:</b> {labours.find(l => l.id === payment.labour_id)?.full_name}</div>
               <div><b>Mode:</b> {payment.mode}</div>
               <div><b>Narration:</b> {payment.narration}</div>
+            </div>
+            <div className="flex gap-2 mt-2">
+              <button
+                className="flex-1 px-2 py-1 bg-blue-500 text-white rounded"
+                onClick={() => handleEditPayment(payment)}
+                disabled={loading}
+              >
+                Edit
+              </button>
+              <button
+                className="flex-1 px-2 py-1 bg-red-500 text-white rounded"
+                onClick={() => handleDeletePayment(payment)}
+                disabled={loading}
+              >
+                Delete
+              </button>
             </div>
           </div>
         ))}

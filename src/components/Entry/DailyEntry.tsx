@@ -26,6 +26,10 @@ export const DailyEntry: React.FC = () => {
     new_balance: 0,
   });
 
+  // New state for editing
+  const [editingEntry, setEditingEntry] = useState<any | null>(null);
+  const [entries, setEntries] = useState<any[]>([]);
+
   useEffect(() => {
     fetchLabours();
     fetchWorkCategories();
@@ -79,6 +83,80 @@ export const DailyEntry: React.FC = () => {
     });
   }, [formData.wage]);
 
+  // Fetch entries for selected labour
+  useEffect(() => {
+    const fetchEntries = async () => {
+      if (formData.labour_id) {
+        const { data } = await supabase
+          .from('daily_entries')
+          .select('*')
+          .eq('labour_id', formData.labour_id)
+          .order('entry_date', { ascending: true });
+        setEntries(data || []);
+      } else {
+        setEntries([]);
+      }
+    };
+    fetchEntries();
+  }, [formData.labour_id, saving]);
+
+  // Edit handler
+  const handleEditEntry = (entry: any) => {
+    setEditingEntry(entry);
+    setFormData({
+      labour_id: entry.labour_id,
+      entry_date: entry.entry_date,
+      wage: entry.amount_paid.toString(),
+      notes: entry.notes || '',
+      work_type: entry.work_type || '',
+      category: entry.category || '',
+      subcategory: entry.subcategory || '',
+      attendance_status: entry.attendance_status || 'present',
+    });
+  };
+
+  // Delete handler
+  const handleDeleteEntry = async (entry: any) => {
+    if (!window.confirm('Are you sure you want to delete this entry?')) return;
+    setSaving(true);
+    try {
+      // 1. Delete the entry
+      await supabase.from('daily_entries').delete().eq('id', entry.id);
+
+      // 2. Update balances for all subsequent entries
+      const { data: subsequentEntries } = await supabase
+        .from('daily_entries')
+        .select('*')
+        .eq('labour_id', entry.labour_id)
+        .gt('entry_date', entry.entry_date)
+        .order('entry_date', { ascending: true });
+
+      let balance = entry.previous_balance;
+      for (const subEntry of subsequentEntries || []) {
+        balance += Number(subEntry.amount_paid || 0);
+        await supabase.from('daily_entries').update({
+          previous_balance: balance - Number(subEntry.amount_paid || 0),
+          new_balance: balance,
+        }).eq('id', subEntry.id);
+      }
+
+      // 3. Update master balance
+      await supabase.from('labour_master')
+        .update({ balance })
+        .eq('id', entry.labour_id);
+
+      toast.success('Entry deleted!');
+      setSaving(false);
+      setEditingEntry(null);
+      setFormData({ labour_id: '', entry_date: '', wage: '', notes: '', work_type: '', category: '', subcategory: '', attendance_status: 'present' });
+      setCalculations({ previous_balance: 0, wage: 0, new_balance: 0 });
+      fetchLabours();
+    } catch (err: any) {
+      toast.error('Failed to delete entry: ' + err.message);
+      setSaving(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const isAbsent = formData.attendance_status === 'absent';
@@ -101,66 +179,115 @@ export const DailyEntry: React.FC = () => {
     }
     setSaving(true);
     try {
-      const { data: existingEntry } = await supabase
-        .from('daily_entries')
-        .select('id')
-        .eq('labour_id', formData.labour_id)
-        .eq('entry_date', formData.entry_date)
-        .maybeSingle();
+      let prevBalance = calculations.previous_balance;
+      let wageAmount = Number(formData.wage);
+      let newBalance = prevBalance + wageAmount;
 
-      if (existingEntry) {
-        toast.error('Entry for this labour on the selected date already exists.');
-        setSaving(false);
-        return;
+      if (editingEntry) {
+        // EDIT MODE
+       // const wageDiff = wageAmount - Number(editingEntry.amount_paid);
+
+        // 1. Update the entry
+        await supabase.from('daily_entries').update({
+          ...editingEntry,
+          entry_date: formData.entry_date,
+          amount_paid: wageAmount,
+          previous_balance: prevBalance,
+          new_balance: newBalance,
+          notes: formData.notes,
+          attendance_status: formData.attendance_status,
+          work_type: formData.work_type,
+          category: formData.category,
+          subcategory: formData.subcategory,
+        }).eq('id', editingEntry.id);
+
+        // 2. Update balances for all subsequent entries
+        const { data: subsequentEntries } = await supabase
+          .from('daily_entries')
+          .select('*')
+          .eq('labour_id', editingEntry.labour_id)
+          .gt('entry_date', formData.entry_date)
+          .order('entry_date', { ascending: true });
+
+        let balance = newBalance;
+        for (const subEntry of subsequentEntries || []) {
+          balance += Number(subEntry.amount_paid || 0);
+          await supabase.from('daily_entries').update({
+            previous_balance: balance - Number(subEntry.amount_paid || 0),
+            new_balance: balance,
+          }).eq('id', subEntry.id);
+        }
+
+        // 3. Update master balance
+        await supabase.from('labour_master')
+          .update({ balance })
+          .eq('id', editingEntry.labour_id);
+
+        toast.success('Entry updated!');
+        setEditingEntry(null);
+      } else {
+        // ADD MODE (existing logic)
+        const { data: existingEntry } = await supabase
+          .from('daily_entries')
+          .select('id')
+          .eq('labour_id', formData.labour_id)
+          .eq('entry_date', formData.entry_date)
+          .maybeSingle();
+
+        if (existingEntry) {
+          toast.error('Entry for this labour on the selected date already exists.');
+          setSaving(false);
+          return;
+        }
+
+        const { data: labour, error: labourError } = await supabase
+          .from('labour_master')
+          .select('balance')
+          .eq('id', formData.labour_id)
+          .maybeSingle();
+        if (labourError || !labour) {
+          toast.error('Could not fetch current balance.');
+          setSaving(false);
+          return;
+        }
+        const prevBalance = Number(labour.balance) || 0;
+        const wageAmount = Number(formData.wage);
+        const newBalance = prevBalance + wageAmount;
+
+        const entry = {
+          labour_id: formData.labour_id,
+          entry_date: formData.entry_date,
+          amount_paid: Number(formData.wage),
+          previous_balance: Number(calculations.previous_balance),
+          new_balance: Number(calculations.new_balance),
+          notes: formData.notes,
+          user_id: user.id,
+          attendance_status: formData.attendance_status,
+          work_type: formData.work_type,
+          category: formData.category,
+          subcategory: formData.subcategory,
+        };
+        const { error: entryError } = await supabase.from('daily_entries').insert([entry]);
+        if (entryError) {
+          toast.error('Failed to save entry: ' + entryError.message);
+          setSaving(false);
+          return;
+        }
+
+        const { error: masterError } = await supabase.from('labour_master')
+          .update({ balance: newBalance })
+          .eq('id', formData.labour_id);
+        if (masterError) {
+          toast.error('Failed to update master balance: ' + masterError.message);
+          setSaving(false);
+          return;
+        }
+
+        toast.success('Entry saved!');
+        setFormData({ labour_id: '', entry_date: '', wage: '', notes: '', work_type: '', category: '', subcategory: '', attendance_status: 'present' });
+        setCalculations({ previous_balance: 0, wage: 0, new_balance: 0 });
+        fetchLabours();
       }
-
-      const { data: labour, error: labourError } = await supabase
-        .from('labour_master')
-        .select('balance')
-        .eq('id', formData.labour_id)
-        .maybeSingle();
-      if (labourError || !labour) {
-        toast.error('Could not fetch current balance.');
-        setSaving(false);
-        return;
-      }
-      const prevBalance = Number(labour.balance) || 0;
-      const wageAmount = Number(formData.wage);
-      const newBalance = prevBalance + wageAmount;
-
-      const entry = {
-        labour_id: formData.labour_id,
-        entry_date: formData.entry_date,
-        amount_paid: Number(formData.wage),
-        previous_balance: Number(calculations.previous_balance),
-        new_balance: Number(calculations.new_balance),
-        notes: formData.notes,
-        user_id: user.id,
-        attendance_status: formData.attendance_status,
-        work_type: formData.work_type,
-        category: formData.category,
-        subcategory: formData.subcategory,
-      };
-      const { error: entryError } = await supabase.from('daily_entries').insert([entry]);
-      if (entryError) {
-        toast.error('Failed to save entry: ' + entryError.message);
-        setSaving(false);
-        return;
-      }
-
-      const { error: masterError } = await supabase.from('labour_master')
-        .update({ balance: newBalance })
-        .eq('id', formData.labour_id);
-      if (masterError) {
-        toast.error('Failed to update master balance: ' + masterError.message);
-        setSaving(false);
-        return;
-      }
-
-      toast.success('Entry saved!');
-      setFormData({ labour_id: '', entry_date: '', wage: '', notes: '', work_type: '', category: '', subcategory: '', attendance_status: 'present' });
-      setCalculations({ previous_balance: 0, wage: 0, new_balance: 0 });
-      fetchLabours();
     } catch (err: any) {
       toast.error('Failed to save entry: ' + err.message);
     }
@@ -300,6 +427,55 @@ export const DailyEntry: React.FC = () => {
           </button>
         </div>
       </form>
+      <div className="mt-8">
+        <h2 className="text-lg font-bold mb-2">Daily Entries</h2>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border rounded">
+            <thead>
+              <tr className="bg-gray-100 dark:bg-gray-800">
+                <th className="p-2">Date</th>
+                <th className="p-2">Wage</th>
+                <th className="p-2">Type</th>
+                <th className="p-2">Category</th>
+                <th className="p-2">Subcategory</th>
+                <th className="p-2">Attendance</th>
+                <th className="p-2">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {entries.map(entry => (
+                <tr key={entry.id}>
+                  <td className="p-2">{entry.entry_date}</td>
+                  <td className="p-2">{entry.amount_paid}</td>
+                  <td className="p-2">{entry.work_type}</td>
+                  <td className="p-2">{entry.category}</td>
+                  <td className="p-2">{entry.subcategory}</td>
+                  <td className="p-2">{entry.attendance_status}</td>
+                  <td className="p-2 flex gap-2">
+                    <button
+                      className="px-2 py-1 bg-blue-500 text-white rounded"
+                      onClick={() => handleEditEntry(entry)}
+                    >
+                      Edit
+                    </button>
+                    <button
+                      className="px-2 py-1 bg-red-500 text-white rounded"
+                      onClick={() => handleDeleteEntry(entry)}
+                    >
+                      Delete
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {entries.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="text-center text-gray-400 py-4">No entries found.</td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
