@@ -100,19 +100,19 @@ export const PaymentScreen = () => {
   };
 
   return (
-    <div className="max-w-xl mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4 text-gray-900 dark:text-gray-100">Payments</h1>
+    <div className="max-w-2xl mx-auto p-4 sm:p-6 bg-white dark:bg-gray-900 rounded-xl shadow-lg mt-8">
+      <h1 className="text-2xl font-bold mb-6 text-blue-900 dark:text-blue-100 text-center">Payments</h1>
       {selectedLabour && (
-        <div className="mb-4 p-4 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-900 dark:text-yellow-100 font-semibold">
+        <div className="mb-4 p-4 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-900 dark:text-yellow-100 font-semibold text-center">
           Pending Amount: ₹{pendingAmount}
         </div>
       )}
-      <div className="mb-4">
-        <label className="block mb-1 text-gray-700 dark:text-gray-300">Select Labour</label>
+      <div className="mb-6">
+        <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Select Labour</label>
         <select
           value={selectedLabour}
           onChange={e => setSelectedLabour(e.target.value)}
-          className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none"
+          className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none py-2 px-3"
         >
           <option value="" disabled className="text-gray-400 dark:text-gray-500">-- Select Labour --</option>
           {labours.map(labour => (
@@ -122,55 +122,60 @@ export const PaymentScreen = () => {
           ))}
         </select>
       </div>
-      <form onSubmit={handleSubmit} className="mb-4 space-y-4">
-        <div>
-          <label className="block mb-1 text-gray-700 dark:text-gray-300">Date</label>
-          <input
-            type="date"
-            value={form.date}
-            onChange={e => setForm({ ...form, date: e.target.value })}
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-            required
-          />
+      <form onSubmit={handleSubmit} className="space-y-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Date</label>
+            <input
+              type="date"
+              value={form.date}
+              onChange={e => setForm({ ...form, date: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Amount</label>
+            <input
+              type="number"
+              value={form.amount}
+              onChange={e => setForm({ ...form, amount: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
+              required
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Mode</label>
+            <input
+              type="text"
+              value={form.mode}
+              onChange={e => setForm({ ...form, mode: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-gray-700 dark:text-gray-300 font-medium">Narration</label>
+            <input
+              type="text"
+              value={form.narration}
+              onChange={e => setForm({ ...form, narration: e.target.value })}
+              className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
+            />
+          </div>
         </div>
-        <div>
-          <label className="block mb-1 text-gray-700 dark:text-gray-300">Amount</label>
-          <input
-            type="number"
-            value={form.amount}
-            onChange={e => setForm({ ...form, amount: e.target.value })}
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-            required
-          />
+        <div className="sticky bottom-0 bg-white dark:bg-gray-900 py-3 z-10">
+          <button
+            type="submit"
+            className="w-full bg-gradient-to-r from-blue-600 to-blue-400 hover:from-blue-700 hover:to-blue-500 text-white font-semibold py-3 rounded-lg shadow transition-colors disabled:opacity-50 text-lg"
+            disabled={loading}
+          >
+            {loading ? 'Adding...' : 'Add Payment'}
+          </button>
         </div>
-        <div>
-          <label className="block mb-1 text-gray-700 dark:text-gray-300">Mode</label>
-          <input
-            type="text"
-            value={form.mode}
-            onChange={e => setForm({ ...form, mode: e.target.value })}
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-          />
-        </div>
-        <div>
-          <label className="block mb-1 text-gray-700 dark:text-gray-300">Narration</label>
-          <input
-            type="text"
-            value={form.narration}
-            onChange={e => setForm({ ...form, narration: e.target.value })}
-            className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-          />
-        </div>
-        <button
-          type="submit"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg shadow transition-colors disabled:opacity-50"
-          disabled={loading}
-        >
-          {loading ? 'Adding...' : 'Add Payment'}
-        </button>
       </form>
-      <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-gray-100">Payment History</h2>
-      <div className="overflow-x-auto">
+      <h2 className="text-xl font-bold mb-4 text-blue-900 dark:text-blue-100 text-center">Payment History</h2>
+      {/* Desktop Table */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="min-w-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
           <thead>
             <tr className="bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 uppercase text-sm">
@@ -195,6 +200,22 @@ export const PaymentScreen = () => {
             ))}
           </tbody>
         </table>
+      </div>
+      {/* Mobile Cards */}
+      <div className="md:hidden space-y-3">
+        {payments.map(payment => (
+          <div key={payment.id} className="border rounded-lg p-3 bg-gray-50 dark:bg-gray-800 shadow">
+            <div className="flex justify-between mb-1">
+              <span className="font-semibold text-gray-700 dark:text-gray-200">{new Date(payment.date).toLocaleDateString()}</span>
+              <span className="text-blue-700 dark:text-blue-300 font-bold">₹{payment.amount}</span>
+            </div>
+            <div className="text-gray-700 dark:text-gray-200">
+              <div><b>Labour:</b> {labours.find(l => l.id === payment.labour_id)?.full_name}</div>
+              <div><b>Mode:</b> {payment.mode}</div>
+              <div><b>Narration:</b> {payment.narration}</div>
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );

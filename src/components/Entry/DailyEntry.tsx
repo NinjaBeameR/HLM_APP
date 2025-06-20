@@ -81,13 +81,16 @@ export const DailyEntry: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const isAbsent = formData.attendance_status === 'absent';
     if (
       !formData.labour_id ||
       !formData.entry_date ||
-      !formData.wage ||
-      !formData.work_type ||
-      !formData.category ||
-      !formData.subcategory
+      (!isAbsent && (
+        !formData.wage ||
+        !formData.work_type ||
+        !formData.category ||
+        !formData.subcategory
+      ))
     ) {
       toast.error('Please fill all required fields');
       return;
@@ -198,9 +201,10 @@ export const DailyEntry: React.FC = () => {
             <input
               type="number"
               value={formData.wage}
-              onChange={e => setFormData({ ...formData, wage: e.target.value.replace(/^0+/, '') })} // Remove leading zeros
+              onChange={e => setFormData({ ...formData, wage: e.target.value.replace(/^0+/, '') })}
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all py-2 px-3"
-              required
+              required={formData.attendance_status !== 'absent'}
+              disabled={formData.attendance_status === 'absent'}
             />
           </div>
           <div>
@@ -209,7 +213,8 @@ export const DailyEntry: React.FC = () => {
               value={formData.work_type}
               onChange={e => setFormData({ ...formData, work_type: e.target.value, category: '', subcategory: '' })}
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none py-2 px-3"
-              required
+              required={formData.attendance_status !== 'absent'}
+              disabled={formData.attendance_status === 'absent'}
             >
               <option value="" disabled className="text-gray-400 dark:text-gray-500">Select Work Type</option>
               {workTypes.map(type => (
@@ -223,7 +228,8 @@ export const DailyEntry: React.FC = () => {
               value={formData.category}
               onChange={e => setFormData({ ...formData, category: e.target.value })}
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none py-2 px-3"
-              required
+              required={formData.attendance_status !== 'absent'}
+              disabled={formData.attendance_status === 'absent'}
             >
               <option value="" disabled className="text-gray-400 dark:text-gray-500">Select Category</option>
               {categories.map(cat => (
@@ -237,7 +243,8 @@ export const DailyEntry: React.FC = () => {
               value={formData.subcategory}
               onChange={e => setFormData({ ...formData, subcategory: e.target.value })}
               className="w-full border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 rounded-lg shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all appearance-none py-2 px-3"
-              required
+              required={formData.attendance_status !== 'absent'}
+              disabled={formData.attendance_status === 'absent'}
             >
               <option value="" disabled className="text-gray-400 dark:text-gray-500">Select Subcategory</option>
               {subcategories.map(sub => (
