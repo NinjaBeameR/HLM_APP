@@ -102,7 +102,7 @@ export const SummaryDashboard: React.FC = () => {
       // Combine and sort by date
       const combined = [
         ...entries.map((e: any) => ({
-          type: 'Work',
+          type: 'Work' as const,
           date: e.entry_date,
           attendance: e.attendance_status,
           work_type: e.work_type,
@@ -110,71 +110,53 @@ export const SummaryDashboard: React.FC = () => {
           subcategory: e.subcategory,
           wage: e.amount_paid,
           notes: e.notes,
-          running_balance: e.new_balance,
         })),
         ...pays.map((p: any) => ({
-          type: 'Payment',
+          type: 'Payment' as const,
           date: p.date,
           payment: p.amount,
           mode: p.mode,
           narration: p.narration,
-          running_balance: '', // Not tracked in payments
         })),
       ].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      let lastBalance = 0;
+      // Start with opening balance
+      let runningBalance = labour.balance || 0;
+
       combined.forEach(row => {
         if (row.type === 'Work') {
-          const workRow = row as {
-            type: 'Work';
-            date: string;
-            attendance: string;
-            work_type: string;
-            category: string;
-            subcategory: string;
-            wage: number;
-            notes: string;
-            running_balance: number;
-          };
-          lastBalance = workRow.running_balance;
+          runningBalance += Number(row.wage) || 0;
           rows.push({
             'Labour Name': labour.full_name,
-            'Date': formatDate(workRow.date),
-            'Entry Type': workRow.type,
-            'Attendance': workRow.attendance || '',
-            'Type of Work': workRow.work_type || '',
-            'Category': workRow.category || '',
-            'Subcategory': workRow.subcategory || '',
-            'Per Day Wage': workRow.wage || '',
-            'Wage Payable': workRow.wage || '',
+            'Date': formatDate(row.date),
+            'Entry Type': row.type,
+            'Attendance': row.attendance || '',
+            'Type of Work': row.work_type || '',
+            'Category': row.category || '',
+            'Subcategory': row.subcategory || '',
+            'Per Day Wage': row.wage || '',
+            'Wage Payable': row.wage || '',
             'Payment': '',
             'Payment Mode': '',
-            'Narration': workRow.notes || '',
-            'Running Balance': workRow.running_balance
+            'Narration': row.notes || '',
+            'Running Balance': runningBalance
           });
         } else if (row.type === 'Payment') {
-          const payRow = row as {
-            type: 'Payment';
-            date: string;
-            payment: number;
-            mode: string;
-            narration: string;
-            running_balance: string;
-          };
+          runningBalance -= Number(row.payment) || 0;
           rows.push({
             'Labour Name': labour.full_name,
-            'Date': formatDate(payRow.date),
-            'Entry Type': payRow.type,
+            'Date': formatDate(row.date),
+            'Entry Type': row.type,
             'Attendance': '',
             'Type of Work': '',
             'Category': '',
             'Subcategory': '',
             'Per Day Wage': '',
             'Wage Payable': '',
-            'Payment': payRow.payment || '',
-            'Payment Mode': payRow.mode || '',
-            'Narration': payRow.narration || '',
-            'Running Balance': lastBalance
+            'Payment': row.payment || '',
+            'Payment Mode': row.mode || '',
+            'Narration': row.narration || '',
+            'Running Balance': runningBalance
           });
         }
       });
