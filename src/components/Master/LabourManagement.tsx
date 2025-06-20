@@ -110,20 +110,44 @@ export const LabourManagement = () => {
         fetchLabours(); // Refresh list
 
         // Recalculate all daily entries for this labour
-        const { data: entries } = await supabase
+        const { data: entriesRaw } = await supabase
       .from('daily_entries')
       .select('*')
-      .eq('labour_id', editingLabour.id)
-      .order('entry_date', { ascending: true });
+      .eq('labour_id', editingLabour.id);
+const entries = entriesRaw ?? [];
+
+const { data: paymentsRaw } = await supabase
+      .from('payments')
+      .select('*')
+      .eq('labour_id', editingLabour.id);
+const payments = paymentsRaw ?? [];
+
+// Combine and sort all transactions by date (and type)
+        const combined = [
+          ...entries.map(e => ({ ...e, type: 'entry' })),
+          ...payments.map(p => ({ ...p, type: 'payment' })),
+        ].sort((a, b) => {
+          const dateA = new Date(a.entry_date || a.date).getTime();
+          const dateB = new Date(b.entry_date || b.date).getTime();
+          if (dateA !== dateB) return dateA - dateB;
+          // On same date, entries before payments
+          if (a.type === b.type) return 0;
+          return a.type === 'entry' ? -1 : 1;
+        });
 
         let runningBalance = Number(formData.balance) || 0;
-        for (const entry of entries || []) {
-          const prevBalance = runningBalance;
-          runningBalance += Number(entry.amount_paid) || 0;
-          await supabase.from('daily_entries').update({
-            previous_balance: prevBalance,
-            new_balance: runningBalance,
-          }).eq('id', entry.id);
+        for (const item of combined) {
+          if (item.type === 'entry') {
+            const prevBalance = runningBalance;
+            runningBalance += Number(item.amount_paid) || 0;
+            await supabase.from('daily_entries').update({
+              previous_balance: prevBalance,
+              new_balance: runningBalance,
+            }).eq('id', item.id);
+          } else if (item.type === 'payment') {
+            runningBalance -= Number(item.amount) || 0;
+            // Optionally update a running_balance field in payments if you want
+          }
         }
       }
     } else {
