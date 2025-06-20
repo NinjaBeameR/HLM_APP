@@ -273,6 +273,7 @@ export const SummaryDashboard: React.FC = () => {
           )}
           {filteredLabours.map(labour => {
             const summary = getLabourSummary(labour.id);
+            const computedBalance = (summary.balance || 0) + summary.totalWork - summary.totalPaid;
             return (
               <div key={labour.id} className="p-4 flex justify-between items-center">
                 <div>
@@ -281,8 +282,8 @@ export const SummaryDashboard: React.FC = () => {
                     Total Work: ₹{summary.totalWork.toFixed(2)} | Paid: ₹{summary.totalPaid.toFixed(2)}
                   </div>
                 </div>
-                <div className={`font-bold ${summary.balance > 0 ? 'text-red-600' : 'text-green-600'}`}>
-                  Balance: ₹{summary.balance.toFixed(2)}
+                <div className={`font-bold ${computedBalance > 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  Balance: ₹{computedBalance.toFixed(2)}
                 </div>
               </div>
             );
