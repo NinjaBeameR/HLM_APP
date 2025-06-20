@@ -9,10 +9,27 @@ export const PaymentScreen = () => {
   const [form, setForm] = useState({ date: '', amount: '', mode: '', narration: '' });
   const [loading, setLoading] = useState(false);
   const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [pendingAmount, setPendingAmount] = useState<number>(0);
 
   useEffect(() => {
     fetchAll();
   }, []);
+
+  useEffect(() => {
+    const fetchPending = async () => {
+      if (!selectedLabour) {
+        setPendingAmount(0);
+        return;
+      }
+      const { data: labour } = await supabase.from('labour_master').select('balance').eq('id', selectedLabour).maybeSingle();
+      const { data: entries } = await supabase.from('daily_entries').select('amount_paid').eq('labour_id', selectedLabour);
+      const { data: pays } = await supabase.from('payments').select('amount').eq('labour_id', selectedLabour);
+      const totalEntries = (entries || []).reduce((sum, e) => sum + (Number(e.amount_paid) || 0), 0);
+      const totalPays = (pays || []).reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
+      setPendingAmount((Number(labour?.balance) || 0) + totalEntries - totalPays);
+    };
+    fetchPending();
+  }, [selectedLabour, payments]);
 
   const fetchAll = async () => {
     await Promise.all([fetchLabours(), fetchPayments()]);
@@ -186,6 +203,11 @@ export const PaymentScreen = () => {
           )}
         </div>
       </form>
+      {selectedLabour && (
+        <div className="mb-4 p-4 rounded bg-yellow-100 dark:bg-yellow-900 text-yellow-900 dark:text-yellow-100 font-semibold text-center">
+          Pending Amount: ₹{pendingAmount}
+        </div>
+      )}
       <h2 className="text-xl font-bold mb-4 text-blue-900 dark:text-blue-100 text-center">Payment History</h2>
       {/* Desktop Table */}
       <div className="hidden md:block overflow-x-auto">
