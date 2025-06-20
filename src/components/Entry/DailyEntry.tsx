@@ -53,15 +53,29 @@ export const DailyEntry: React.FC = () => {
   const categories = Array.from(new Set(workCategories.map(wc => wc.category).filter(Boolean)));
   const subcategories = Array.from(new Set(workCategories.map(wc => wc.subcategory).filter(Boolean)));
 
+  // Fetch previous balance for the selected labour and date
+  const fetchPreviousBalance = async (labour_id: string, entry_date: string) => {
+    if (!labour_id || !entry_date) return 0;
+    // Get the latest entry before the selected date
+    const { data: prevEntries } = await supabase
+      .from('daily_entries')
+      .select('new_balance')
+      .eq('labour_id', labour_id)
+      .lt('entry_date', entry_date)
+      .order('entry_date', { ascending: false })
+      .limit(1);
+    if (prevEntries && prevEntries.length > 0) {
+      return Number(prevEntries[0].new_balance) || 0;
+    }
+    // If no previous entry, use 0 or opening balance
+    return 0;
+  };
+
+  // In your useEffect, update calculations when labour or date changes:
   useEffect(() => {
-    const fetchBalance = async () => {
-      if (formData.labour_id) {
-        const { data: labour } = await supabase
-          .from('labour_master')
-          .select('balance')
-          .eq('id', formData.labour_id)
-          .maybeSingle();
-        const prevBalance = Number(labour?.balance) || 0;
+    const updatePrevBalance = async () => {
+      if (formData.labour_id && formData.entry_date) {
+        const prevBalance = await fetchPreviousBalance(formData.labour_id, formData.entry_date);
         setCalculations(c => ({
           ...c,
           previous_balance: prevBalance,
@@ -69,9 +83,11 @@ export const DailyEntry: React.FC = () => {
         }));
       }
     };
-    fetchBalance();
-  }, [formData.labour_id]);
+    updatePrevBalance();
+    // eslint-disable-next-line
+  }, [formData.labour_id, formData.entry_date]);
 
+  // When wage changes, update new_balance only:
   useEffect(() => {
     setCalculations(c => {
       const wageNum = Number(formData.wage);
